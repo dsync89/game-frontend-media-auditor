@@ -100,6 +100,8 @@ class GameMediaAuditApp:
                                 clear_logo_dir, clear_logo_files_regexed, clear_logo_file_paths,
                                 playfield_dir, playfield_files_regexed, playfield_file_paths)        
 
+        self.tree.delete(*self.tree.get_children())  # Clear existing items
+
         # self.setup_table()
         self.populate_table()        
         # self.populate_table_with_dummy_data()
