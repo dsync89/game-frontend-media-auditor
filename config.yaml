@@ -4,3 +4,13 @@ platforms:
   playfield_dir: c:\Programs\LaunchBox\Images\Visual Pinball\Screenshot - Gameplay
   rom_dir: r:\ROMS-1G1R\pinball\Visual Pinball\Visual Pinball [VPX0-VPX08] PinMame
     Tables
+- clear_logo_dir: C:\Programs\LaunchBox\Images\Visual Pinball\Clear Logo
+  platform_name: VPX Recreated Tables
+  playfield_dir: c:\Programs\LaunchBox\Images\Visual Pinball\Screenshot - Gameplay
+  rom_dir: R:/ROMS-1G1R/pinball/Visual Pinball/Visual Pinball [VPX0-VPX08] Recreated
+    Tables
+- clear_logo_dir: C:\Programs\LaunchBox\Images\Visual Pinball\Clear Logo
+  platform_name: VPX Original Tables
+  playfield_dir: c:\Programs\LaunchBox\Images\Visual Pinball\Screenshot - Gameplay
+  rom_dir: R:/ROMS-1G1R/pinball/Visual Pinball/Visual Pinball [VPX0-VPX08] Original
+    Tables
