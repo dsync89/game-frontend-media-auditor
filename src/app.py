@@ -89,14 +89,16 @@ class GameMediaAuditApp:
         playfield_files, playfield_file_paths = self.scan_files(playfield_dir, '.png|.jpg')
 
         # Process files and perform regex operations
-        rom_data = self.process_files(rom_files)
-        clear_logo_data = self.process_files(clear_logo_files)
-        playfield_data = self.process_files(playfield_files)
+        rom_files_regexed = self.process_files(rom_files)
+        clear_logo_files_regexed = self.process_files(clear_logo_files)
+        playfield_files_regexed = self.process_files(playfield_files)
+
+        rom_list_with_images_path = self.find_match(rom_files_regexed, rom_file_paths, clear_logo_files_regexed, clear_logo_file_paths, playfield_files_regexed, playfield_file_paths)
 
         # Store data in YAML
-        self.store_data_in_yaml(rom_dir, rom_data, rom_file_paths,
-                                clear_logo_dir, clear_logo_data, clear_logo_file_paths,
-                                playfield_dir, playfield_data, playfield_file_paths)        
+        self.store_data_in_yaml(rom_dir, rom_files_regexed, rom_file_paths,
+                                clear_logo_dir, clear_logo_files_regexed, clear_logo_file_paths,
+                                playfield_dir, playfield_files_regexed, playfield_file_paths)        
 
         # self.setup_table()
         self.populate_table()        
@@ -152,6 +154,9 @@ class GameMediaAuditApp:
         self.tree.heading("#0", text="rom_filename_regexed")
         self.tree.heading("clear_logo_found", text="Clear Logo Found")
         self.tree.heading("playfield_image_found", text="Playfield Image Found")
+        self.tree.heading("rom_filepath", text="ROM Filepath")
+        self.tree.heading("clear_logo_filepath", text="Clear Logo Filepath")
+        self.tree.heading("playfield_filepath", text="Playfield Filepath")
 
         self.tree.column("#0", width=200)  # Adjust the width according to your content
         self.tree.column("clear_logo_found", width=50)
@@ -159,10 +164,6 @@ class GameMediaAuditApp:
         # self.tree.column("rom_filepath", width=0)
         # self.tree.column("clear_logo_filepath", width=0)
         # self.tree.column("playfield_filepath", width=0)
-
-        # Expand rows to fill the whole root frame
-        # self.frame.grid_rowconfigure(0, weight=1)  # Configure row 0 to expand
-        # self.tree.grid(row=0, column=3, padx=5, pady=5, sticky="nsew")  # Remove rowspan attribute
 
         scrollbar = ttk.Scrollbar(self.middle_frame, orient="vertical", command=self.tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -238,11 +239,112 @@ class GameMediaAuditApp:
     #         self.tree.tag_configure(clear_logo_found, columnspan='#2')  # Apply only to the 'clear_logo_found' column
     #         self.tree.tag_configure(playfield_found, columnspan='#3')  # Apply only to the 'playfield_image_found' column
 
+    def find_matching_index(self, value_a, array_b):
+        for value_b in array_b.values():
+            if value_a == value_b:
+                return list(array_b.values()).index(value_b)
+        return -1  # If no match is found
 
+    def find_match(self, rom_files_regexed, rom_file_paths, clear_logo_files_regexed, clear_logo_file_paths, playfield_files_regexed, playfield_file_paths):
+        clear_logo_filepath = ''
+        playfield_filepath = ''
 
+        OUTFILE_YAML='out2.yaml'
+
+        # delete existing file
+        if os.path.exists(OUTFILE_YAML):
+            os.remove(OUTFILE_YAML)
+            print(f"File '{OUTFILE_YAML}' removed successfully.")        
+
+        try:
+            with open(OUTFILE_YAML, 'r') as file:
+                existing_data = yaml.safe_load(file)
+                if existing_data is None:
+                    existing_data = {'roms': []}
+        except FileNotFoundError:
+            existing_data = {'roms': []}
+
+        for idx, rom_filename in enumerate(rom_files_regexed):
+            clear_logo_filepath = ''
+            playfield_filepath = ''      
+
+            print(rom_filename)
+
+            matching_index = self.find_matching_index(rom_files_regexed[rom_filename], clear_logo_files_regexed)
+            if matching_index >= 0:
+                clear_logo_filepath = clear_logo_file_paths[matching_index]
+            
+            matching_index = self.find_matching_index(rom_files_regexed[rom_filename], playfield_files_regexed)
+            if matching_index >= 0:
+                playfield_filepath = playfield_file_paths[matching_index]     
+        
+            data = {
+                'rom': {
+                    'filename': rom_filename,
+                    'filename_regexed': rom_files_regexed[rom_filename],
+                    'filepath': rom_file_paths[idx],
+                    'clear_logo_filepath': clear_logo_filepath,
+                    'playfield_filepath': playfield_filepath
+                }
+            }
+            existing_data['roms'].append(data)   
+
+        # save the final file
+        with open(OUTFILE_YAML, 'w') as file:
+            yaml.dump(existing_data, file)
+
+        return existing_data
+                
     def populate_table(self):
         # Read data from out.yaml file
-        with open('out.yaml', 'r') as file:
+        with open('out2.yaml', 'r') as file:
+            data = yaml.safe_load(file)
+
+        for rom in data['roms']:
+            rom_filenames = rom.get('rom', {}).get('filename_regexed', [])
+            clear_logo_filenames = rom.get('rom', {}).get('filename_regexed', [])
+            playfield_filenames = rom.get('playfield', {}).get('filename_regexed', [])
+
+            rom_filepaths = rom.get('rom', {}).get('filepath', [])
+            clear_logo_filepaths = rom.get('rom', {}).get('clear_logo_filepath', [])
+            playfield_filepaths = rom.get('rom', {}).get('playfield_filepath', [])
+
+            # Define tags for 'green' and 'red' colors
+            self.tree.tag_configure("green", background="green")
+            self.tree.tag_configure("red", background="red")
+
+            # Match rom filename with clear logo and playfield filenames
+            clear_logo_found = 'green' if len(clear_logo_filepaths) > 0 else 'red'
+            playfield_found = 'green' if len(playfield_filepaths) > 0 else 'red'
+
+            # Insert item into the treeview and apply tags for colors
+            item_id = self.tree.insert("", "end", text=rom_filenames)
+            self.tree.set(item_id, "clear_logo_found", clear_logo_found)
+            self.tree.set(item_id, "playfield_image_found", playfield_found)
+
+            # Set the corresponding file paths in the Treeview
+            if len(rom_filepaths) > 0:
+                self.tree.set(item_id, "rom_filepath", rom_filepaths)
+            else:
+                self.tree.set(item_id, "rom_filepath", "")
+
+            if len(clear_logo_filepaths) > 0:
+                self.tree.set(item_id, "clear_logo_filepath", clear_logo_filepaths)
+            else:
+                self.tree.set(item_id, "clear_logo_filepath", "")
+
+            if len(playfield_filepaths) > 0:
+                self.tree.set(item_id, "playfield_filepath", playfield_filepaths)    
+            else:       
+                self.tree.set(item_id, "playfield_filepath", "")    
+
+            # Apply tags for colors
+            self.tree.item(item_id, tags=(clear_logo_found, playfield_found))
+
+
+    def populate_table_old(self):
+        # Read data from out.yaml file
+        with open('out2.yaml', 'r') as file:
             data = yaml.safe_load(file)
 
         rom_filenames = data.get('rom_dir', {}).get('filename_regexed', [])
@@ -270,11 +372,19 @@ class GameMediaAuditApp:
             # Set the corresponding file paths in the Treeview
             if idx < len(rom_filepaths):
                 self.tree.set(item_id, "rom_filepath", rom_filepaths[idx])
+            else:
+                self.tree.set(item_id, "rom_filepath", "")
+
             if idx < len(clear_logo_filepaths):
                 self.tree.set(item_id, "clear_logo_filepath", clear_logo_filepaths[idx])
+            else:
+                self.tree.set(item_id, "clear_logo_filepath", "")
+
             if idx < len(playfield_filepaths):
-                self.tree.set(item_id, "playfield_filepath", playfield_filepaths[idx])            
-            
+                self.tree.set(item_id, "playfield_filepath", playfield_filepaths[idx])    
+            else:       
+                self.tree.set(item_id, "playfield_filepath", "")    
+
             # Apply tags for colors
             self.tree.item(item_id, tags=(clear_logo_found, playfield_found))
 
@@ -296,21 +406,6 @@ class GameMediaAuditApp:
             print(f"Playfield Filepath: {playfield_filepath}")
             self.show_images(clear_logo_filepath, playfield_filepath)
 
-    def show_images2(self, clear_logo_filepath, playfield_filepath):
-        print(f"Loading Clear Logo: {clear_logo_filepath}")
-        print(f"Loading Playfield: {playfield_filepath}")
-        clear_logo_image = self.load_image(clear_logo_filepath)
-        playfield_image = self.load_image(playfield_filepath)
-
-        if clear_logo_image and playfield_image:
-            self.clear_logo_image_label.configure(image=clear_logo_image)
-            self.clear_logo_image_label.image = clear_logo_image
-
-            self.playfield_image_label.configure(image=playfield_image)
-            self.playfield_image_label.image = playfield_image
-        else:
-            print("Failed to load images. Paths might be invalid.")
-
     def show_images(self, clear_logo_filepath, playfield_filepath):
         max_width = 300  # Define your maximum width here
         max_height = 400  # Define your maximum height here
@@ -328,27 +423,29 @@ class GameMediaAuditApp:
     def load_image(self, path, max_width=100, max_height=100):
         if path:
             image = Image.open(path)
-            # Get the original dimensions
-            width, height = image.size
-            
-            # Calculate the aspect ratio
-            aspect_ratio = width / height
-            
-            # Resize based on the maximum width or height, preserving aspect ratio
-            if width > max_width or height > max_height:
-                if width > height:
-                    new_width = max_width
-                    new_height = int(new_width / aspect_ratio)
-                else:
-                    new_height = max_height
-                    new_width = int(new_height * aspect_ratio)
+        else: # load default image if not found
+            image = Image.open('no-image.jpg')
 
-                # Resize the image using thumbnail method
-                image.thumbnail((new_width, new_height))
-            
-            image = ImageTk.PhotoImage(image)
-            return image
-        return None
+        # Get the original dimensions
+        width, height = image.size
+        
+        # Calculate the aspect ratio
+        aspect_ratio = width / height
+        
+        # Resize based on the maximum width or height, preserving aspect ratio
+        if width > max_width or height > max_height:
+            if width > height:
+                new_width = max_width
+                new_height = int(new_width / aspect_ratio)
+            else:
+                new_height = max_height
+                new_width = int(new_height * aspect_ratio)
+
+            # Resize the image using thumbnail method
+            image.thumbnail((new_width, new_height))
+        
+        image = ImageTk.PhotoImage(image)
+        return image     
 
 
     # show popup window
