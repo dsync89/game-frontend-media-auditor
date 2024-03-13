@@ -125,7 +125,18 @@ class GameMediaAuditApp:
         for file in files:
             # Perform regex operations or any other required processing
             # Modify regex pattern to remove brackets and file extensions
-            processed_data[file] = re.sub(r'\s*\[.*?\]\s*|\s*\([^()]*\)\s*|\.\w+$', '', file)
+
+            # check if bracket is found
+            if '(' in file or '[' in file:
+                match =  re.search(r'^([^(^\[]+)', file)
+                if match:
+                    processed_data[file] = match.group(1).strip() # trim any white spaces after
+                else:
+                    pass
+            else: # no bracket found, use the whole filename but strip the file extension
+                name, extension = os.path.splitext(file)
+                processed_data[file] = name
+            # processed_data[file] = re.sub(r'\s*\[.*?\]\s*|\s*\([^()]*\)\s*|\.\w+$', '', file)
         return processed_data
 
     def store_data_in_yaml(self, rom_dir, rom_data, rom_filepaths, clear_logo_dir, clear_logo_data, clear_logo_filepaths, playfield_dir, playfield_data, playfield_filepaths):
@@ -243,7 +254,7 @@ class GameMediaAuditApp:
 
     def find_matching_index(self, value_a, array_b):
         for value_b in array_b.values():
-            if value_a == value_b:
+            if value_a.lower() == value_b.lower():
                 return list(array_b.values()).index(value_b)
         return -1  # If no match is found
 
@@ -303,7 +314,7 @@ class GameMediaAuditApp:
             data = yaml.safe_load(file)
 
         for rom in data['roms']:
-            rom_filenames = rom.get('rom', {}).get('filename_regexed', [])
+            rom_filenames = rom.get('rom', {}).get('filename', [])
             clear_logo_filenames = rom.get('rom', {}).get('filename_regexed', [])
             playfield_filenames = rom.get('playfield', {}).get('filename_regexed', [])
 
